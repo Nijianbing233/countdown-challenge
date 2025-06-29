@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { taskAPI } from '@/services/api'
 
 export const useTaskStore = defineStore('tasks', () => {
   // 状态
@@ -32,101 +33,154 @@ export const useTaskStore = defineStore('tasks', () => {
     })
   })
 
-  // 从localStorage加载数据
-  const loadFromStorage = () => {
+  // 从API加载数据
+  const loadFromAPI = async () => {
     try {
-      const savedActiveTasks = localStorage.getItem('countdown-active-tasks')
-      const savedCompletedTasks = localStorage.getItem('countdown-completed-tasks')
+      isLoading.value = true
+      error.value = null
       
-      if (savedActiveTasks) {
-        activeTasks.value = JSON.parse(savedActiveTasks)
+      // 获取进行中的任务
+      const activeResponse = await taskAPI.getTasks({ status: 'active' })
+      if (activeResponse.success) {
+        activeTasks.value = activeResponse.data
       }
-      if (savedCompletedTasks) {
-        completedTasks.value = JSON.parse(savedCompletedTasks)
+      
+      // 获取已完成的任务
+      const completedResponse = await taskAPI.getTasks({ status: 'completed' })
+      if (completedResponse.success) {
+        completedTasks.value = completedResponse.data
       }
     } catch (err) {
-      console.error('加载数据失败:', err)
-      error.value = '加载数据失败'
-    }
-  }
-
-  // 保存数据到localStorage
-  const saveToStorage = () => {
-    try {
-      localStorage.setItem('countdown-active-tasks', JSON.stringify(activeTasks.value))
-      localStorage.setItem('countdown-completed-tasks', JSON.stringify(completedTasks.value))
-    } catch (err) {
-      console.error('保存数据失败:', err)
-      error.value = '保存数据失败'
+      console.error('从API加载数据失败:', err)
+      error.value = err.message || '加载数据失败'
+    } finally {
+      isLoading.value = false
     }
   }
 
   // 添加新任务
-  const addTask = (taskData) => {
-    const task = {
-      id: Date.now(),
-      title: taskData.title,
-      description: taskData.description,
-      totalDays: taskData.days,
-      startDate: new Date().toISOString(),
-      endDate: new Date(Date.now() + taskData.days * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: new Date().toISOString()
+  const addTask = async (taskData) => {
+    try {
+      isLoading.value = true
+      error.value = null
+      
+      const response = await taskAPI.createTask({
+        title: taskData.title,
+        description: taskData.description,
+        totalDays: taskData.days
+      })
+      
+      if (response.success) {
+        activeTasks.value.push(response.data)
+        return response.data
+      } else {
+        throw new Error(response.error || '创建任务失败')
+      }
+    } catch (err) {
+      console.error('创建任务失败:', err)
+      error.value = err.message || '创建任务失败'
+      throw err
+    } finally {
+      isLoading.value = false
     }
-    
-    activeTasks.value.push(task)
-    saveToStorage()
-    return task
   }
 
   // 完成任务
-  const completeTask = (taskId) => {
-    const taskIndex = activeTasks.value.findIndex(t => t.id === taskId)
-    if (taskIndex !== -1) {
-      const task = activeTasks.value[taskIndex]
-      const completedTask = {
-        ...task,
-        completedDate: new Date().toISOString(),
-        status: 'completed'
-      }
+  const completeTask = async (taskId) => {
+    try {
+      isLoading.value = true
+      error.value = null
       
-      completedTasks.value.push(completedTask)
-      activeTasks.value.splice(taskIndex, 1)
-      saveToStorage()
-      return completedTask
+      const response = await taskAPI.completeTask(taskId)
+      
+      if (response.success) {
+        const taskIndex = activeTasks.value.findIndex(t => t._id === taskId)
+        if (taskIndex !== -1) {
+          const task = activeTasks.value[taskIndex]
+          activeTasks.value.splice(taskIndex, 1)
+          completedTasks.value.push(response.data)
+          return response.data
+        }
+      } else {
+        throw new Error(response.error || '完成任务失败')
+      }
+    } catch (err) {
+      console.error('完成任务失败:', err)
+      error.value = err.message || '完成任务失败'
+      throw err
+    } finally {
+      isLoading.value = false
     }
-    return null
   }
 
   // 删除任务
-  const deleteTask = (taskId) => {
-    activeTasks.value = activeTasks.value.filter(t => t.id !== taskId)
-    saveToStorage()
+  const deleteTask = async (taskId) => {
+    try {
+      isLoading.value = true
+      error.value = null
+      
+      const response = await taskAPI.deleteTask(taskId)
+      
+      if (response.success) {
+        activeTasks.value = activeTasks.value.filter(t => t._id !== taskId)
+      } else {
+        throw new Error(response.error || '删除任务失败')
+      }
+    } catch (err) {
+      console.error('删除任务失败:', err)
+      error.value = err.message || '删除任务失败'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
   }
 
   // 删除已完成任务
-  const deleteCompletedTask = (taskId) => {
-    completedTasks.value = completedTasks.value.filter(t => t.id !== taskId)
-    saveToStorage()
+  const deleteCompletedTask = async (taskId) => {
+    try {
+      isLoading.value = true
+      error.value = null
+      
+      const response = await taskAPI.deleteTask(taskId)
+      
+      if (response.success) {
+        completedTasks.value = completedTasks.value.filter(t => t._id !== taskId)
+      } else {
+        throw new Error(response.error || '删除任务失败')
+      }
+    } catch (err) {
+      console.error('删除已完成任务失败:', err)
+      error.value = err.message || '删除任务失败'
+      throw err
+    } finally {
+      isLoading.value = false
+    }
   }
 
   // 编辑任务
-  const editTask = (taskId, updates) => {
-    const taskIndex = activeTasks.value.findIndex(t => t.id === taskId)
-    if (taskIndex !== -1) {
-      const task = activeTasks.value[taskIndex]
-      const updatedTask = { ...task, ...updates }
+  const editTask = async (taskId, updates) => {
+    try {
+      isLoading.value = true
+      error.value = null
       
-      // 如果修改了天数，重新计算结束时间
-      if (updates.totalDays) {
-        const startDate = new Date(task.startDate)
-        updatedTask.endDate = new Date(startDate.getTime() + updates.totalDays * 24 * 60 * 60 * 1000).toISOString()
+      const response = await taskAPI.updateTask(taskId, updates)
+      
+      if (response.success) {
+        const taskIndex = activeTasks.value.findIndex(t => t._id === taskId)
+        if (taskIndex !== -1) {
+          activeTasks.value[taskIndex] = response.data
+          return response.data
+        }
+      } else {
+        throw new Error(response.error || '更新任务失败')
       }
-      
-      activeTasks.value[taskIndex] = updatedTask
-      saveToStorage()
-      return updatedTask
+    } catch (err) {
+      console.error('更新任务失败:', err)
+      error.value = err.message || '更新任务失败'
+      throw err
+    } finally {
+      isLoading.value = false
     }
-    return null
   }
 
   // 导出数据
@@ -148,29 +202,75 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   // 导入数据
-  const importData = (data) => {
+  const importData = async (data) => {
     try {
-      if (data.activeTasks) {
-        activeTasks.value = data.activeTasks
+      isLoading.value = true
+      error.value = null
+      
+      // 清空现有数据
+      activeTasks.value = []
+      completedTasks.value = []
+      
+      // 导入进行中的任务
+      if (data.activeTasks && Array.isArray(data.activeTasks)) {
+        for (const task of data.activeTasks) {
+          await addTask({
+            title: task.title,
+            description: task.description,
+            days: task.totalDays
+          })
+        }
       }
-      if (data.completedTasks) {
-        completedTasks.value = data.completedTasks
+      
+      // 导入已完成的任务（这里需要特殊处理，因为已完成的任务不能直接创建）
+      if (data.completedTasks && Array.isArray(data.completedTasks)) {
+        for (const task of data.completedTasks) {
+          // 先创建任务，然后标记为完成
+          const newTask = await addTask({
+            title: task.title,
+            description: task.description,
+            days: task.totalDays
+          })
+          if (newTask) {
+            await completeTask(newTask._id)
+          }
+        }
       }
-      saveToStorage()
+      
       return true
     } catch (err) {
       console.error('导入数据失败:', err)
-      error.value = '导入数据失败'
+      error.value = err.message || '导入数据失败'
       return false
+    } finally {
+      isLoading.value = false
     }
   }
 
   // 清空所有数据
-  const clearAllData = () => {
-    activeTasks.value = []
-    completedTasks.value = []
-    localStorage.removeItem('countdown-active-tasks')
-    localStorage.removeItem('countdown-completed-tasks')
+  const clearAllData = async () => {
+    try {
+      isLoading.value = true
+      error.value = null
+      
+      // 删除所有进行中的任务
+      for (const task of activeTasks.value) {
+        await taskAPI.deleteTask(task._id)
+      }
+      
+      // 删除所有已完成的任务
+      for (const task of completedTasks.value) {
+        await taskAPI.deleteTask(task._id)
+      }
+      
+      activeTasks.value = []
+      completedTasks.value = []
+    } catch (err) {
+      console.error('清空数据失败:', err)
+      error.value = err.message || '清空数据失败'
+    } finally {
+      isLoading.value = false
+    }
   }
 
   // 获取任务统计
@@ -181,6 +281,28 @@ export const useTaskStore = defineStore('tasks', () => {
       completed: completedTasksCount.value,
       expired: expiredTasks.value.length,
       upcoming: upcomingTasks.value.length
+    }
+  }
+
+  // 搜索任务
+  const searchTasks = async (query) => {
+    try {
+      isLoading.value = true
+      error.value = null
+      
+      const response = await taskAPI.searchTasks(query)
+      
+      if (response.success) {
+        return response.data
+      } else {
+        throw new Error(response.error || '搜索失败')
+      }
+    } catch (err) {
+      console.error('搜索任务失败:', err)
+      error.value = err.message || '搜索失败'
+      return []
+    } finally {
+      isLoading.value = false
     }
   }
 
@@ -199,8 +321,7 @@ export const useTaskStore = defineStore('tasks', () => {
     upcomingTasks,
     
     // 方法
-    loadFromStorage,
-    saveToStorage,
+    loadFromAPI,
     addTask,
     completeTask,
     deleteTask,
@@ -209,6 +330,7 @@ export const useTaskStore = defineStore('tasks', () => {
     exportData,
     importData,
     clearAllData,
-    getTaskStats
+    getTaskStats,
+    searchTasks
   }
 }) 

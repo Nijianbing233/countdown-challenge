@@ -4,14 +4,14 @@
       <h3 class="task-title">{{ task.title }}</h3>
       <div class="card-actions">
         <button 
-          @click="$emit('complete', task.id)" 
+          @click="$emit('complete', task._id)" 
           class="action-btn complete-btn"
           title="完成"
         >
           <CheckCircle class="icon" />
         </button>
         <button 
-          @click="$emit('delete', task.id)" 
+          @click="$emit('delete', task._id)" 
           class="action-btn delete-btn"
           title="删除"
         >
@@ -199,39 +199,34 @@ onUnmounted(() => {
 .time-value {
   font-size: 1.5rem;
   font-weight: 700;
-  line-height: 1;
-}
-
-.time-unit:nth-child(1) .time-value {
-  color: #4f46e5;
-}
-
-.time-unit:nth-child(2) .time-value {
-  color: #2563eb;
-}
-
-.time-unit:nth-child(3) .time-value {
-  color: #7c3aed;
-}
-
-.time-unit:nth-child(4) .time-value {
-  color: #db2777;
+  color: #1f2937;
+  margin-bottom: 0.25rem;
 }
 
 .time-label {
   font-size: 0.75rem;
   color: #6b7280;
-  margin-top: 0.25rem;
+  font-weight: 500;
 }
 
 .expired-notice {
-  padding: 0.75rem;
   background: #fef2f2;
   border: 1px solid #fecaca;
-  border-radius: 8px;
   color: #dc2626;
-  font-size: 0.875rem;
-  font-weight: 500;
+  padding: 0.75rem;
+  border-radius: 8px;
   text-align: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  .countdown-display {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .time-value {
+    font-size: 1.25rem;
+  }
 }
 </style>

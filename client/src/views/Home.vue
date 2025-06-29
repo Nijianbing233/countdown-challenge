@@ -12,6 +12,7 @@
             @click="exportData"
             class="action-btn export-btn"
             title="导出数据"
+            :disabled="taskStore.isLoading"
           >
             <Download class="btn-icon" />
             <span class="btn-text">导出数据</span>
@@ -20,6 +21,7 @@
             @click="showAddModal = true"
             class="action-btn add-btn"
             title="添加目标"
+            :disabled="taskStore.isLoading"
           >
             <Plus class="btn-icon" />
             <span class="btn-text">添加目标</span>
@@ -30,6 +32,20 @@
 
     <main class="app-main">
       <div class="main-container">
+        <!-- 错误提示 -->
+        <div v-if="taskStore.error" class="error-message">
+          <div class="error-content">
+            <span class="error-text">{{ taskStore.error }}</span>
+            <button @click="clearError" class="error-close">×</button>
+          </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div v-if="taskStore.isLoading" class="loading-overlay">
+          <div class="loading-spinner"></div>
+          <p class="loading-text">加载中...</p>
+        </div>
+
         <!-- 统计卡片 -->
         <div class="stats-grid">
           <StatsCard
@@ -76,7 +92,7 @@
           <template v-if="activeTab === 'active'">
             <CountdownCard
               v-for="task in taskStore.activeTasks"
-              :key="task.id"
+              :key="task._id"
               :task="task"
               @complete="handleCompleteTask"
               @delete="handleDeleteTask"
@@ -87,7 +103,7 @@
           <template v-if="activeTab === 'completed'">
             <CompletedCard
               v-for="task in taskStore.completedTasks"
-              :key="task.id"
+              :key="task._id"
               :task="task"
             />
           </template>
@@ -95,12 +111,12 @@
 
         <!-- 空状态 -->
         <EmptyState
-          v-if="activeTab === 'active' && taskStore.activeTasksCount === 0"
+          v-if="activeTab === 'active' && taskStore.activeTasksCount === 0 && !taskStore.isLoading"
           type="no-tasks"
           @action="showAddModal = true"
         />
         <EmptyState
-          v-if="activeTab === 'completed' && taskStore.completedTasksCount === 0"
+          v-if="activeTab === 'completed' && taskStore.completedTasksCount === 0 && !taskStore.isLoading"
           type="no-completed"
         />
       </div>
@@ -133,19 +149,34 @@ const showAddModal = ref(false)
 const activeTab = ref('active')
 
 // 处理添加任务
-const handleAddTask = (taskData) => {
-  taskStore.addTask(taskData)
-  showAddModal.value = false
+const handleAddTask = async (taskData) => {
+  try {
+    await taskStore.addTask(taskData)
+    showAddModal.value = false
+  } catch (error) {
+    console.error('添加任务失败:', error)
+    // 错误已经在store中处理
+  }
 }
 
 // 处理完成任务
-const handleCompleteTask = (taskId) => {
-  taskStore.completeTask(taskId)
+const handleCompleteTask = async (taskId) => {
+  try {
+    await taskStore.completeTask(taskId)
+  } catch (error) {
+    console.error('完成任务失败:', error)
+    // 错误已经在store中处理
+  }
 }
 
 // 处理删除任务
-const handleDeleteTask = (taskId) => {
-  taskStore.deleteTask(taskId)
+const handleDeleteTask = async (taskId) => {
+  try {
+    await taskStore.deleteTask(taskId)
+  } catch (error) {
+    console.error('删除任务失败:', error)
+    // 错误已经在store中处理
+  }
 }
 
 // 导出数据
@@ -165,9 +196,18 @@ const exportData = () => {
   URL.revokeObjectURL(url)
 }
 
+// 清除错误
+const clearError = () => {
+  taskStore.error = null
+}
+
 // 组件挂载时加载数据
-onMounted(() => {
-  taskStore.loadFromStorage()
+onMounted(async () => {
+  try {
+    await taskStore.loadFromAPI()
+  } catch (error) {
+    console.error('初始化加载失败:', error)
+  }
 })
 </script>
 
@@ -231,12 +271,17 @@ onMounted(() => {
   text-decoration: none;
 }
 
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .export-btn {
   background: #059669;
   color: white;
 }
 
-.export-btn:hover {
+.export-btn:hover:not(:disabled) {
   background: #047857;
   transform: translateY(-1px);
 }
@@ -246,7 +291,7 @@ onMounted(() => {
   color: white;
 }
 
-.add-btn:hover {
+.add-btn:hover:not(:disabled) {
   background: #4338ca;
   transform: translateY(-1px);
 }
@@ -262,11 +307,81 @@ onMounted(() => {
 
 .app-main {
   padding: 2rem 1rem;
+  position: relative;
 }
 
 .main-container {
   max-width: 1200px;
   margin: 0 auto;
+}
+
+/* 错误消息样式 */
+.error-message {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.error-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.error-text {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.error-close {
+  background: none;
+  border: none;
+  color: #dc2626;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+}
+
+.error-close:hover {
+  background: #fee2e2;
+}
+
+/* 加载状态样式 */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f4f6;
+  border-top: 4px solid #4f46e5;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+.loading-text {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .stats-grid {
