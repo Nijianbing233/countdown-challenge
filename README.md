@@ -32,7 +32,7 @@ npm install
 ### 启动应用
 
 ```bash
-# 启动后端 (端口5000)
+# 启动后端 (端口5001)
 cd server
 npm run dev
 
@@ -44,7 +44,7 @@ npm run dev
 ### 访问应用
 
 - 前端: http://localhost:3000
-- 后端API: http://localhost:5000
+- 后端API: http://localhost:5001
 
 ## 📊 主要功能
 
