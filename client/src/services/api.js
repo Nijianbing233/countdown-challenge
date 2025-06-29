@@ -12,7 +12,11 @@ const api = axios.create({
 // 请求拦截器
 api.interceptors.request.use(
   (config) => {
-    // 可以在这里添加认证token等
+    // 添加认证token
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
     return config
   },
   (error) => {
@@ -22,9 +26,7 @@ api.interceptors.request.use(
 
 // 响应拦截器
 api.interceptors.response.use(
-  (response) => {
-    return response.data
-  },
+  (response) => response.data,
   (error) => {
     console.error('API请求失败:', error)
     
@@ -32,11 +34,17 @@ api.interceptors.response.use(
       // 服务器返回错误状态码
       const { status, data } = error.response
       
+      // 如果是401错误，清除本地token
+      if (status === 401) {
+        localStorage.removeItem('token')
+        // 可以在这里触发重新登录
+      }
+      
       switch (status) {
         case 400:
-          throw new Error(data.error || '请求参数错误')
+          throw new Error(data.error || data.message || '请求参数错误')
         case 401:
-          throw new Error('未授权访问')
+          throw new Error(data.message || '未授权访问')
         case 403:
           throw new Error('访问被拒绝')
         case 404:
@@ -46,7 +54,7 @@ api.interceptors.response.use(
         case 500:
           throw new Error('服务器内部错误')
         default:
-          throw new Error(data.error || '请求失败')
+          throw new Error(data.error || data.message || '请求失败')
       }
     } else if (error.request) {
       // 网络错误
@@ -57,6 +65,21 @@ api.interceptors.response.use(
     }
   }
 )
+
+// 用户认证相关API
+export const authAPI = {
+  // 用户注册
+  register: (userData) => api.post('/auth/register', userData),
+  
+  // 用户登录
+  login: (credentials) => api.post('/auth/login', credentials),
+  
+  // 获取用户信息
+  getMe: () => api.get('/auth/me'),
+  
+  // 迁移匿名任务
+  migrateTasks: (deviceId) => api.post('/auth/migrate-tasks', { deviceId })
+}
 
 // 任务相关API
 export const taskAPI = {
