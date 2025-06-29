@@ -1,5 +1,6 @@
 import express from 'express'
 import Task from '../models/Task.js'
+import { optionalAuth } from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -22,12 +23,20 @@ const generateDeviceId = (req) => {
 }
 
 // 获取用户的所有任务
-router.get('/', async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
   try {
     const deviceId = generateDeviceId(req)
-    const { status, limit = 50, page = 1 } = req.query
+    const { status, limit = 50, page = 1, deviceId: queryDeviceId } = req.query
     
-    const query = { deviceId }
+    // 优先deviceId查询
+    let query = {}
+    if (queryDeviceId) {
+      query.deviceId = queryDeviceId
+    } else if (req.user) {
+      query.userId = req.user._id
+    } else {
+      query.deviceId = deviceId
+    }
     if (status) {
       query.status = status
     }
@@ -61,7 +70,7 @@ router.get('/', async (req, res) => {
 })
 
 // 创建新任务
-router.post('/', async (req, res) => {
+router.post('/', optionalAuth, async (req, res) => {
   try {
     const deviceId = generateDeviceId(req)
     const { title, description, totalDays } = req.body
@@ -82,15 +91,21 @@ router.post('/', async (req, res) => {
       })
     }
     
-    const task = new Task({
+    const taskData = {
       title,
       description,
       totalDays,
       deviceId,
       startDate: new Date(),
       endDate: new Date(Date.now() + totalDays * 24 * 60 * 60 * 1000)
-    })
+    }
     
+    // 如果用户已登录，添加用户ID
+    if (req.user) {
+      taskData.userId = req.user._id
+    }
+    
+    const task = new Task(taskData)
     await task.save()
     
     res.status(201).json({
@@ -108,12 +123,20 @@ router.post('/', async (req, res) => {
 })
 
 // 获取单个任务
-router.get('/:id', async (req, res) => {
+router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const deviceId = generateDeviceId(req)
     const { id } = req.params
     
-    const task = await Task.findOne({ _id: id, deviceId })
+    // 构建查询条件
+    const query = { _id: id }
+    if (req.user) {
+      query.userId = req.user._id
+    } else {
+      query.deviceId = deviceId
+    }
+    
+    const task = await Task.findOne(query)
     
     if (!task) {
       return res.status(404).json({
@@ -136,13 +159,21 @@ router.get('/:id', async (req, res) => {
 })
 
 // 更新任务
-router.put('/:id', async (req, res) => {
+router.put('/:id', optionalAuth, async (req, res) => {
   try {
     const deviceId = generateDeviceId(req)
     const { id } = req.params
     const { title, description, totalDays } = req.body
     
-    const task = await Task.findOne({ _id: id, deviceId })
+    // 构建查询条件
+    const query = { _id: id }
+    if (req.user) {
+      query.userId = req.user._id
+    } else {
+      query.deviceId = deviceId
+    }
+    
+    const task = await Task.findOne(query)
     
     if (!task) {
       return res.status(404).json({
@@ -189,12 +220,20 @@ router.put('/:id', async (req, res) => {
 })
 
 // 完成任务
-router.patch('/:id/complete', async (req, res) => {
+router.patch('/:id/complete', optionalAuth, async (req, res) => {
   try {
     const deviceId = generateDeviceId(req)
     const { id } = req.params
     
-    const task = await Task.findOne({ _id: id, deviceId })
+    // 构建查询条件
+    const query = { _id: id }
+    if (req.user) {
+      query.userId = req.user._id
+    } else {
+      query.deviceId = deviceId
+    }
+    
+    const task = await Task.findOne(query)
     
     if (!task) {
       return res.status(404).json({
@@ -215,7 +254,7 @@ router.patch('/:id/complete', async (req, res) => {
     res.json({
       success: true,
       data: task,
-      message: '任务完成！恭喜你！'
+      message: '任务完成！'
     })
   } catch (error) {
     console.error('完成任务失败:', error)

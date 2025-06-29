@@ -46,7 +46,14 @@ const taskSchema = new mongoose.Schema({
     default: 'active'
   },
   
-  // 用户标识（匿名用户使用设备指纹）
+  // 用户标识（登录用户使用userId，匿名用户使用deviceId）
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false,
+    index: true
+  },
+  
   deviceId: {
     type: String,
     required: [true, '设备ID不能为空'],
@@ -118,6 +125,7 @@ taskSchema.virtual('progressPercentage').get(function() {
 
 // 索引
 taskSchema.index({ deviceId: 1, status: 1 })
+taskSchema.index({ userId: 1, status: 1 })
 taskSchema.index({ status: 1, endDate: 1 })
 taskSchema.index({ createdAt: -1 })
 taskSchema.index({ title: 'text', description: 'text' })
@@ -191,7 +199,8 @@ taskSchema.statics.getStats = async function() {
           $sum: { $cond: [{ $eq: ['$status', 'expired'] }, 1, 0] }
         },
         avgDays: { $avg: '$totalDays' },
-        totalUsers: { $addToSet: '$deviceId' }
+        totalUsers: { $addToSet: '$deviceId' },
+        totalRegisteredUsers: { $addToSet: '$userId' }
       }
     },
     {
@@ -202,7 +211,15 @@ taskSchema.statics.getStats = async function() {
         completedTasks: 1,
         expiredTasks: 1,
         avgDays: { $round: ['$avgDays', 1] },
-        uniqueUsers: { $size: '$totalUsers' }
+        uniqueUsers: { $size: '$totalUsers' },
+        uniqueRegisteredUsers: { 
+          $size: { 
+            $filter: { 
+              input: '$totalRegisteredUsers', 
+              cond: { $ne: ['$$this', null] } 
+            } 
+          } 
+        }
       }
     }
   ])
@@ -213,7 +230,8 @@ taskSchema.statics.getStats = async function() {
     completedTasks: 0,
     expiredTasks: 0,
     avgDays: 0,
-    uniqueUsers: 0
+    uniqueUsers: 0,
+    uniqueRegisteredUsers: 0
   }
 }
 

@@ -10,6 +10,7 @@ import mongoose from 'mongoose'
 // 路由导入
 import taskRoutes from './routes/tasks.js'
 import statsRoutes from './routes/stats.js'
+import authRoutes from './routes/auth.js'
 
 // 加载环境变量
 dotenv.config()
@@ -50,6 +51,7 @@ app.get('/health', (req, res) => {
 })
 
 // API路由
+app.use('/api/auth', authRoutes)
 app.use('/api/tasks', taskRoutes)
 app.use('/api/stats', statsRoutes)
 
