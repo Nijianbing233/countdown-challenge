@@ -23,8 +23,26 @@ const PORT = process.env.PORT || 5001
 app.use(helmet())
 app.use(compression())
 app.use(morgan('combined'))
+
+// 支持多个前端和后台管理系统域名的CORS
+const allowOrigins = [
+  process.env.CLIENT_URL,
+  process.env.ADMIN_URL,
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5001'
+].filter(Boolean)
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: function(origin, callback) {
+    // 允许无origin（如curl、本地测试）
+    if (!origin) return callback(null, true)
+    if (allowOrigins.includes(origin)) {
+      return callback(null, true)
+    } else {
+      return callback(new Error('CORS not allowed from ' + origin), false)
+    }
+  },
   credentials: true
 }))
 
@@ -43,7 +61,7 @@ app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 // 健康检查
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
