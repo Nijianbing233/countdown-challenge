@@ -11,6 +11,7 @@ import mongoose from 'mongoose'
 import taskRoutes from './routes/tasks.js'
 import statsRoutes from './routes/stats.js'
 import authRoutes from './routes/auth.js'
+import adminRoutes from './routes/admin.js'
 
 // 加载环境变量
 dotenv.config()
@@ -54,6 +55,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes)
 app.use('/api/tasks', taskRoutes)
 app.use('/api/stats', statsRoutes)
+app.use('/api/admin', adminRoutes)
 
 // 404处理
 app.use('/api/*', (req, res) => {
