@@ -113,21 +113,10 @@ const startServer = async () => {
   })
 }
 
-// 优雅关闭
-process.on('SIGTERM', () => {
-  console.log('收到SIGTERM信号，正在关闭服务器...')
-  mongoose.connection.close(() => {
-    console.log('数据库连接已关闭')
-    process.exit(0)
-  })
-})
+// Vercel 适配 - 只在非生产环境启动服务器
+if (process.env.NODE_ENV !== 'production') {
+  startServer()
+}
 
-process.on('SIGINT', () => {
-  console.log('收到SIGINT信号，正在关闭服务器...')
-  mongoose.connection.close(() => {
-    console.log('数据库连接已关闭')
-    process.exit(0)
-  })
-})
-
-startServer() 
+// 导出app供Vercel使用
+export default app 
